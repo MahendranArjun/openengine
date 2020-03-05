@@ -1,0 +1,22 @@
+PeerConnectionFactory; to generate PeerConnections,
+PeerConnection; one for every connection to another peer you want (usually 1),
+MediaStream; to hook up the audio and video from your client device.
+Then you generate an SDP offer
+
+peerConnection.createOffer();  
+on the caller side and send it to the callee. The callee sets this offer
+
+peerConnection.setRemoteDescription(insert-the-offer-here);
+and generates an SDP answer
+
+peerConnection.createAnswer();
+and sends it back to the caller. The caller receives this answer and sets it.
+
+peerConnection.setRemoteDescription(insert-the-answer-here);
+Both the caller and callee get a call to
+
+onAddStream() {...} //needs to be implemented in your code
+The callee when the caller's offer is set and the caller when the callee's answer is set. This callback signals the beginning of the connection.
+You can also use ICE (STUN/TURN) to avoid firewall and NAT issues, but this is optional. Although in production code, you probably want to implement it anyway.
+
+Note: Webrtc documentation is scarce and subject to change, take everything you read about webrtc (at least anything written as of now) with a grain of salt...
