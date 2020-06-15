@@ -1,0 +1,29 @@
+Abstract
+
+Is it compulsory for a class which is declared as abstract to have at least one abstract method?
+
+Why final and abstract can not be used at a time?
+
+We can’t instantiate an abstract class. Then why constructors are allowed in abstract class
+
+Can we declare abstract methods as private?
+
+Interface is an abtract class?
+
+
+Polymorphism
+
+Did you know Difference between method overloading and overriding?
+
+What is static and dynamic binding?
+
+Why method overloading is not possible by changing the return type in java
+
+Did you know run time polymorphism and compile time polymorphism?
+
+
+inheritance 
+
+Why multiple inheritance not supported in java?
+Is constructor inherited?
+Did you know What is super keyword in java?
