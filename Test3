@@ -23,3 +23,31 @@ Inheritance and composition - 25
 Generics, wildcards and bounded types - 30
 Reflection and Annotation - 40
 Java Annotation Processors - 40
+
+
+
+
+
+What does the map() function do? why you use it?
+What does the filter() method do? when you use it?
+What does the flatmap() function do? why you need it?
+What is difference between flatMap() and map() functions?
+What does the peek() method does? When should you use it?
+
+
+Why LiveData Need?
+When you observe the data which instance need?
+How to merge multiple LiveData?
+What is Transformations in LiveData? What are the Transformations available in LiveData?
+
+
+What is the use of Path in Android?
+How to draw equilateral triangle using Canvas?
+How to measure Height and Width of view?
+How to refresh view?
+
+
+Why use Room?
+How to make nested fields in Room?
+How to get Database Instance?
+How to get One-to-many relation in Room?
