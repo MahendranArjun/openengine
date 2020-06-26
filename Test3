@@ -35,6 +35,17 @@ What is difference between flatMap() and map() functions?
 What does the peek() method does? When should you use it?
 
 
+
+When muti threading which class use String operation?
+Which method use to stop the thread?
+Which method use to run the thread?
+How to solve visibility problem in java?
+Which Stream Api method use to find some thing in list?
+How to solve synchronization problem in java?
+How to transform one type of list to annother type using Stream api?
+Which class used as mutable string in java?
+
+
 Why LiveData Need?
 When you observe the data which instance need?
 How to merge multiple LiveData?
@@ -88,3 +99,16 @@ Program to transpose a Matrix?
 Program to add or subtract two Matrices?
 Write a Program to multiply two Matrices in Java?
 reverse given Integer in Java?
+
+
+
+
+
+When muti threading which class use String operation?
+Which method use to stop the thread?
+Which method use to run the thread?
+How to solve visibility problem in java?
+Which Stream Api method use to find some thing in list?
+How to solve synchronization problem in java?
+How to transform one type of list to annother type using Stream api?
+Which class used as mutable string in java?
