@@ -1,0 +1,205 @@
+Extensible Messaging and Presence Protocol is an open communication protocol designed for instant messaging, presence information, and contact list maintenance. Based on XML, it enables the near-real-time exchange of structured data between any two or more network entities. 
+
+With WebRTC, you can add real-time communication capabilities to your application that works on top of an open standard. It supports video, voice, and generic data to be sent between peers, allowing developers to build powerful voice- and video-communication solutions. The technology is available on all modern browsers as well as on native clients for all major platforms. The technologies behind WebRTC are implemented as an open web standard and available as regular JavaScript APIs in all major browsers. For native clients, like Android and iOS applications, a library is available that provides the same functionality.
+
+There are many different use-cases for WebRTC, from basic web apps that uses the camera or microphone, to more advanced video-calling applications and screen sharing. 
+
+Smack is an Open Source XMPP client library for instant messaging and presence. A pure Java library, it can be embedded into your applications to create anything from a full XMPP client to simple XMPP integrations such as sending notification messages and presence-enabling devices.
+
+TURN server
+For most WebRTC applications to function a server is required for relaying the traffic between peers, since a direct socket is often not possible between the clients (unless they reside on the same local network). The common way to solve this is by using a TURN server. The term stands for Traversal Using Relay NAT, and it is a protocol for relaying network traffic.
+
+
+
+Getting started with peer connections
+Peer connections is the part of the WebRTC specifications that deals with connecting two applications on different computers to communicate using a peer-to-peer protocol. The communication between peers can be video, audio or arbitrary binary data (for clients supporting the RTCDataChannel API). In order to discover how two peers can connect, both clients need to provide an ICE Server configuration. This is either a STUN or a TURN-server, and their role is to provide ICE candidates to each client which is then transferred to the remote peer. This transferring of ICE candidates is commonly called signaling.
+
+Signaling
+The WebRTC specification includes APIs for communicating with an ICE (Internet Connectivity Establishment) Server, but the signaling component is not part of it. Signaling is needed in order for two peers to share how they should connect. Usually this is solved through a regular HTTP-based Web API (i.e., a REST service or other RPC mechanism) where web applications can relay the necessary information before the peer connection is initiated.
+
+The follow code snippet shows how this fictious signaling service can be used to send and receive messages asynchronously. This will be used in the remaining examples in this guide where necessary.
+
+
+// Set up an asynchronous communication channel that will be
+// used during the peer connection setup
+const signalingChannel = new SignalingChannel(remoteClientId);
+signalingChannel.addEventListener('message', message => {
+    // New message from remote client received
+});
+
+// Send an asynchronous message to the remote client
+signalingChannel.send('Hello!');
+Signaling can be implemented in many different ways, and the WebRTC specification doesn't prefer any specific solution.
+
+Initiating peer connections
+Each peer connection is handled by a RTCPeerConnection object. The constructor for this class takes a single RTCConfiguration object as its parameter. This object defines how the peer connection is set up and should contain information about the ICE servers to use.
+
+Once the RTCPeerConnection is created we need to create an SDP offer or answer, depending on if we are the calling peer or receiving peer. Once the SDP offer or answer is created, it must be sent to the remote peer through a different channel. Passing SDP objects to remote peers is called signaling and is not covered by the WebRTC specification.
+
+To initiate the peer connection setup from the calling side, we create a RTCPeerConnection object and then call createOffer() to create a RTCSessionDescription object. This session description is set as the local description using setLocalDescription() and is then sent over our signaling channel to the receiving side. We also set up a listener to our signaling channel for when an answer to our offered session description is received from the receiving side.
+
+
+async function makeCall() {
+    const configuration = {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]}
+    const peerConnection = new RTCPeerConnection(configuration);
+    signalingChannel.addEventListener('message', async message => {
+        if (message.answer) {
+            const remoteDesc = new RTCSessionDescription(message.answer);
+            await peerConnection.setRemoteDescription(remoteDesc);
+        }
+    });
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    signalingChannel.send({'offer': offer});
+}
+On the receiving side, we wait for an incoming offer before we create our RTCPeerConnection instance. Once that is done we set the received offer using setRemoteDescription(). Next, we call createAnswer() to create an answer to the received offer. This answer is set as the local description using setLocalDescription() and then sent to the calling side over our signaling server.
+
+
+const peerConnection = new RTCPeerConnection(configuration);
+signalingChannel.addEventListener('message', async message => {
+    if (message.offer) {
+        peerConnection.setRemoteDescription(new RTCSessionDescription(message.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        signalingChannel.send({'answer': answer});
+    }
+});
+Once the two peers have set both the local and remote session descriptions they know the capabilities of the remote peer. This doesn't mean that the connection between the peers is ready. For this to work we need to collect the ICE candidates at each peer and transfer (over the signaling channel) to the other peer.
+
+ICE candidates
+Before two peers can communitcate using WebRTC, they need to exchange connectivity information. Since the network conditions can vary dependning on a number of factors, an external service is usually used for discovering the possible candidates for connecting to a peer. This service is called ICE and is using either a STUN or a TURN server. STUN stands for Session Traversal Utilities for NAT, and is usually used indirectly in most WebRTC applications.
+
+TURN (Traversal Using Relay NAT) is the more advanced solution that incorporates the STUN protocols and most commercial WebRTC based services use a TURN server for establishing connections between peers. The WebRTC API supports both STUN and TURN directly, and it is gathered under the more complete term Internet Connectivity Establishment. When creating a WebRTC connection, we usually provide one or several ICE servers in the configuration for the RTCPeerConnection object.
+
+Trickle ICE
+Once a RTCPeerConnection object is created, the underlying framework uses the provided ICE servers to gather candidates for connectivity establishment (ICE candidates). The event icegatheringstatechange on RTCPeerConnection signals in what state the ICE gathering is (new, gathering or complete).
+
+While it is possible for a peer to wait until the ICE gathering is complete, it is usually much more efficient to use a "trickle ice" technique and transmit each ICE candidate to the remote peer as it gets discovered. This will significantly reduce the setup time for the peer connectivity and allow a video call to get started with less delays.
+
+To gather ICE candidates, simply add a listener for the icecandidate event. The RTCPeerConnectionIceEvent emitted on that listener will contain candidate property that represents a new candidate that should be sent to the remote peer (See Signaling).
+
+
+// Listen for local ICE candidates on the local RTCPeerConnection
+peerConnection.addEventListener('icecandidate', event => {
+    if (event.candidate) {
+        signalingChannel.send({'new-ice-candidate': event.candidate});
+    }
+});
+
+// Listen for remote ICE candidates and add them to the local RTCPeerConnection
+signalingChannel.addEventListener('message', async message => {
+    if (message.iceCandidate) {
+        try {
+            await peerConnection.addIceCandidate(message.iceCandidate);
+        } catch (e) {
+            console.error('Error adding received ice candidate', e);
+        }
+    }
+});
+Connection established
+Once ICE candidates are being received, we should expect the state for our peer connection will eventually change to a connected state. To detect this, we add a listener to our RTCPeerConnection where we listen for connectionstatechange events.
+
+
+// Listen for connectionstatechange on the local RTCPeerConnection
+peerConnection.addEventListener('connectionstatechange', event => {
+    if (peerConnection.connectionState === 'connected') {
+        // Peers connected!
+    }
+});
+RTCPeerConnection API documentation
+
+
+
+
+
+Media capture and constraints
+The media part of WebRTC covers how to access hardware capable of capturing video and audio, such as cameras and microphones, as well as how media streams work. It also covers display media, which is how an application can do screen capturing.
+
+Media devices
+All cameras and microphones that are supported by the browser are accessed and managed through the navigator.mediaDevices object. Applications can retrieve the current list of connected devices and also listen for changes, since many cameras and microhpones connect through USB and can be connected and disconnected during the lifecycle of the application. Since the state of a media device can change at any time, it is recommended that applications register for device changes in order to properly handle changes.
+
+Constraints
+When accessing media devices, it is a good practice to provide as detailed constraints as possible. While it is possible to open the default camera and microphone with a simple constraint, it might deliver a media stream that is far from the most optimal for the application.
+
+The specific constraints are defined in a MediaTrackConstraint object, one for audio and one for video. The attributes in this object are of type ConstraintLong, ConstraintBoolean, ConstraintDouble or ConstraintDOMString. These can either be a specific value (e.g., a number, boolean or string), a range (LongRange or DoubleRange with a minimum and maximum value) or an object with either an ideal or exact definition. For a specific value, the browser will attempt to pick something as close as possible. For a range, the best value in that range will be used. When exact is specified, only media streams that exactly match that constraint will be returned.
+
+NEAR
+RANGE
+EXACT
+
+// Camera with a resolution as close to 640x480 as possible
+{
+    "video": {
+        "width": 640,
+        "height": 480
+    }
+}
+To determine the actual configuration a certain track of a media stream has, we can call MediaStreamTrack.getSettings() which returns the MediaTrackSettings currently applied.
+
+It is also possible to update the constraints of a track from a media device we have opened, by calling applyConstraints() on the track. This lets an application re-configure a media device without first having to close the existing stream.
+
+Display media
+An application that wants to be able to perform screen capturing and recording must use the Display Media API. The function getDisplayMedia() (which is part of navigator.mediaDevices is similar to getUserMedia() and is used for the purpose of opening the content of the display (or a portion of it, such as a window). The returned MediaStream works the same as when using getUserMedia().
+
+The constraints for getDisplayMedia() differ from the ones used for regular video or audio input.
+
+
+{
+    video: {
+        cursor: 'always' | 'motion' | 'never',
+        displaySurface: 'application' | 'browser' | 'monitor' | 'window'
+    }
+}
+The code snipet above shows how the special constraints for screen recording works. Note that these might not be supported by all browsers that have display media support.
+
+Streams and tracks
+A MediaStream represents a stream of media content, which consists of tracks (MediaStreamTrack) of audio and video. You can retrieve all the tracks from MediaStream by calling MediaStream.getTracks(), which returns an array of MediaStreamTrack objects.
+
+MediaStreamTrack
+A MediaStreamTrack has a kind property that is either audio or video, indicating the kind of media it represents. Each track can be muted by toggling its enabled property. A track has a Boolean property remote that indicates if it is sourced by a RTCPeerConnection and coming from a remote peer.
+
+
+
+
+
+
+Getting started with remote streams
+Once a RTCPeerConnection is connected to a remote peer, it is possible to stream audio and video between them. This is the point where we connect the stream we receive from getUserMedia() to the RTCPeerConnection. A media stream consists of at least one media track, and these are individually added to the RTCPeerConnection when we want to transmit the media to the remote peer.
+
+
+const localStream = await getUserMedia({vide: true, audio: true});
+const peerConnection = new RTCPeerConnection(iceConfig);
+localStream.getTracks().forEach(track => {
+    peerConnection.addTrack(track, localStream);
+});
+Tracks can be added to a RTCPeerConnection before it has connected to a remote peer, so it makes sense to perform this setup as early as possible instead of waiting for the connection to be completed.
+
+Adding remote tracks
+To receive the remote tracks that were added by the other peer, we register a listener on the local RTCPeerConnection listening for the track event. Since playback is done on a MediaStream object, we first create an empty instance that we then populate with the tracks from the remote peer as we receive them.
+
+
+const remoteStream = MediaStream();
+const remoteVideo = document.querySelector('#remoteVideo');
+remoteVideo.srcObject = remoteStream;
+
+peerConnection.addEventListener('track', async (event) => {
+    remoteStream.addTrack(event.track, remoteStream);
+});
+
+
+https://webrtc.github.io/webrtc-org/native-code/android/
+
+
+XMPP is a rich and complex instant messaging protocol.
+
+Instead of writing our own client from scratch, in this tutorial, we'll take a look at Smack, a modular and portable open source XMPP client written in Java that has done much of the heavy lifting for us.
+
+2. Dependencies
+Smack is organized as several modules to provide more flexibility, so we can easily include the features we need.
+
+Some of these include:
+
+XMPP over TCP module
+A module to support many of the extensions defined by the XMPP Standards Foundation
+Legacy extensions support
+A module to debug
